@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Production Portal — Sign In</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4 font-sans antialiased relative overflow-hidden">
+
+  <!-- Subtle ambient background gradients -->
+  <div class="absolute -top-40 -right-40 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+  <div class="w-full max-w-md bg-slate-800/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl p-8 relative z-10">
+    
+    <!-- Header & Brand -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/30 mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-white tracking-tight">Order Tracking</h2>
+      <p class="text-xs text-slate-400 mt-1">Production Analytics & Lead Time Portal</p>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <div id="error-banner" class="hidden mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+      <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+      </svg>
+      <span id="error-message">Invalid credentials.</span>
+    </div>
+
+    <!-- Form -->
+    <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5">
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">Username</label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            id="username" 
+            required 
+            placeholder="e.g. ERP2025" 
+            class="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">Password</label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+          <input 
+            type="password" 
+            id="password" 
+            required 
+            placeholder="••••••••" 
+            class="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          />
+        </div>
+      </div>
+
+      <button 
+        type="submit" 
+        id="submit-btn" 
+        class="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-600/30 transition duration-200 transform active:scale-[0.99] flex items-center justify-center gap-2"
+      >
+        <span>Sign In to Dashboard</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+        </svg>
+      </button>
+    </form>
+
+    <div class="mt-8 pt-6 border-t border-slate-700/50 text-center">
+      <p class="text-[11px] text-slate-400 font-medium">Authorized Internal Personnel Only • Confidential</p>
+    </div>
+  </div>
+
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('username').value.trim();
+      const pass = document.getElementById('password').value;
+      const errorBanner = document.getElementById('error-banner');
+      const submitBtn = document.getElementById('submit-btn');
+
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
+      try {
+        const formData = new FormData();
+        formData.append('username', user);
+        formData.append('password', pass);
+
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          window.location.href = '/index.html';
+        } else {
+          errorBanner.classList.remove('hidden');
+          document.getElementById('error-message').innerText = data.detail || 'Invalid username or password.';
+        }
+      } catch (err) {
+        errorBanner.classList.remove('hidden');
+        document.getElementById('error-message').innerText = 'Server unreachable. Ensure FastAPI is running.';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+      }
+    }
+  </script>
+</body>
+</html>

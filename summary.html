@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Executive Summary Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Table borders & structure with separate collapse to eliminate sticky bleeding */
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    th, td {
+      border-right: 1px solid #CBD5E1;
+      border-bottom: 1px solid #CBD5E1;
+      white-space: nowrap;
+      font-size: 11px;
+      padding: 6px 10px;
+    }
+    table thead tr:first-child th {
+      border-top: 1px solid #CBD5E1;
+    }
+    table th:first-child,
+    table td:first-child {
+      border-left: 1px solid #CBD5E1;
+    }
+
+    /* Solid 100% Opaque Deep Sticky Header across all tables & modals */
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #1E293B !important;
+      color: #F8FAFC !important;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background-clip: padding-box;
+    }
+
+    .highlight-pink { background-color: #F8BBD0 !important; color: #880e4f !important; font-weight: 600; }
+    .status-completed { background-color: #D1FAE5 !important; color: #065F46 !important; font-weight: 600; text-align: center; }
+    .status-progress { background-color: #E0F2FE !important; color: #0369A1 !important; font-weight: 600; text-align: center; }
+    .status-pending { background-color: #FEF3C7 !important; color: #92400E !important; font-weight: 600; text-align: center; }
+    .text-center font-medium text-gray-700 {
+      text-align: center;
+      font-weight: 500;
+      color: #334155;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex flex-col h-screen font-sans relative">
+
+  <!-- Top Blue Bar -->
+  <header class="bg-[#002B54] text-white px-6 py-3 flex justify-between items-center shadow-md flex-shrink-0">
+    <div class="flex items-center space-x-6">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">Executive Summary</h1>
+        <p id="refresh-time" class="text-xs text-blue-200 mt-0.5">Last Updated: Connecting...</p>
+      </div>
+
+      <!-- View Switcher -->
+      <div class="flex bg-[#001D38] p-1 rounded-md text-xs font-semibold">
+        <a href="index.html" class="text-blue-200 hover:text-white px-3 py-1 rounded transition">Detail View</a>
+        <a href="summary.html" class="bg-white text-[#00427A] px-3 py-1 rounded shadow">Summary View</a>
+      </div>
+    </div>
+    
+    <!-- Controls Container -->
+    <div class="flex items-center space-x-4">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Date</label>
+        <div class="flex space-x-1">
+          <input type="date" id="start-date" value="2026-09-01" class="text-xs text-black px-2 py-1 bg-white border border-gray-300 rounded shadow-sm">
+          <input type="date" id="end-date" value="2026-10-30" class="text-xs text-black px-2 py-1 bg-white border border-gray-300 rounded shadow-sm">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">PO Type</label>
+        <select id="po-type" class="text-xs text-black px-2 py-1 bg-white border border-gray-300 rounded w-28 shadow-sm">
+          <option value="All">All Orders</option>
+          <option value="Sample">Sample</option>
+          <option value="Bulk Order" selected>Bulk Order</option>
+          <option value="Fabric Testing">Fabric Testing</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Customer</label>
+        <select id="customer-filter" onchange="applyCustomerFilter()" class="text-xs text-black px-2 py-1 bg-white border border-gray-300 rounded w-32 shadow-sm font-medium">
+          <option value="All" selected>All Customers</option>
+        </select>
+      </div>
+
+      <div class="flex items-end">
+        <button onclick="loadSummaryData(true)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-1.5 rounded shadow transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Scrollable Content -->
+  <main class="flex-1 p-5 overflow-y-auto space-y-5">
+    
+    <!-- Top 5 Metric Cards (Darker Borders) -->
+    <div class="grid grid-cols-5 gap-4">
+      
+      <!-- 1. ACTIVE ORDERS CARD -->
+      <div onclick="openActiveOrdersModal()" class="bg-white p-4 rounded-lg shadow-sm border-2 border-slate-300 hover:border-slate-500 hover:shadow-md cursor-pointer transition transform hover:-translate-y-0.5 group">
+        <p class="text-[11px] font-semibold text-gray-600 tracking-wider">ACTIVE ORDERS</p>
+        <div class="flex items-baseline space-x-2 mt-1">
+          <p id="kpi-orders" class="text-3xl font-extrabold text-gray-800">0</p>
+          <p id="kpi-jc-total" class="text-xs text-gray-500 font-medium">0 Job Cards</p>
+        </div>
+        <p id="kpi-orders-weight" class="text-[11px] text-slate-600 font-semibold mt-1">Gross: 0.00 Kg</p>
+      </div>
+
+      <!-- 2. DELIVERY OVERDUE CARD -->
+      <div onclick="openOverdueModal()" class="bg-white p-4 rounded-lg shadow-sm border-2 border-rose-300 hover:border-rose-500 hover:shadow-md cursor-pointer transition transform hover:-translate-y-0.5 group">
+        <p class="text-[11px] font-semibold text-rose-700 tracking-wider">DELIVERY OVERDUE</p>
+        <div class="flex items-baseline space-x-2 mt-1">
+          <p id="kpi-overdue" class="text-3xl font-extrabold text-rose-600">0</p>
+          <p class="text-xs text-gray-500 font-medium">Passed target delivery</p>
+        </div>
+        <p id="kpi-overdue-weight" class="text-[11px] text-rose-700 font-semibold mt-1">Gross: 0.00 Kg</p>
+      </div>
+
+      <!-- 3. COMPLETED QA PACKING CARD -->
+      <div onclick="openCompletedModal()" class="bg-white p-4 rounded-lg shadow-sm border-2 border-emerald-300 hover:border-emerald-500 hover:shadow-md cursor-pointer transition transform hover:-translate-y-0.5 group">
+        <p class="text-[11px] font-semibold text-emerald-700 tracking-wider">COMPLETED QA PACKING</p>
+        <div class="flex items-baseline space-x-2 mt-1">
+          <p id="kpi-completed-po" class="text-3xl font-extrabold text-emerald-600">0</p>
+          <p id="kpi-completed-jc" class="text-xs text-gray-500 font-medium">0 / 0 Job Cards</p>
+        </div>
+        <p id="kpi-completed-weight" class="text-[11px] text-emerald-700 font-semibold mt-1">Gross: 0.00 Kg</p>
+      </div>
+
+      <!-- 4. FLAGGED NOTES CARD -->
+      <div onclick="openNotesModal()" class="bg-white p-4 rounded-lg shadow-sm border-2 border-amber-300 hover:border-amber-500 hover:shadow-md cursor-pointer transition transform hover:-translate-y-0.5 group">
+        <p class="text-[11px] font-semibold text-amber-700 tracking-wider">FLAGGED NOTES</p>
+        <div class="flex items-baseline space-x-2 mt-1">
+          <p id="kpi-notes" class="text-3xl font-extrabold text-amber-600">0</p>
+          <p class="text-xs text-gray-500 font-medium">Job Cards with remarks</p>
+        </div>
+        <p id="kpi-notes-weight" class="text-[11px] text-amber-700 font-semibold mt-1">Gross: 0.00 Kg</p>
+      </div>
+
+      <!-- 5. AVG LEAD TIME CARD -->
+      <div onclick="openLeadTimeModal()" class="bg-white p-4 rounded-lg shadow-sm border-2 border-blue-300 hover:border-blue-500 hover:shadow-md cursor-pointer transition transform hover:-translate-y-0.5 group">
+        <p class="text-[11px] font-semibold text-blue-700 tracking-wider">AVG JOBCARD-QA LT</p>
+        <div class="flex items-baseline space-x-2 mt-1">
+          <p id="kpi-avg-lt" class="text-3xl font-extrabold text-blue-600">--</p>
+          <p class="text-xs text-gray-500 font-medium">Creation to QA</p>
+        </div>
+        <p id="kpi-avg-lt-weight" class="text-[11px] text-blue-700 font-semibold mt-1">Gross: 0.00 Kg</p>
+      </div>
+    </div>
+
+    <!-- Middle Chart Grid -->
+    <div class="grid grid-cols-3 gap-5">
+      <!-- Clustered Bar Chart -->
+      <div class="col-span-2 bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <h2 class="text-sm font-bold text-gray-800">Job Card Status by Production Stage</h2>
+            <p class="text-[11px] text-gray-400">Finished, On Progress, and Pending clustered breakdown across stages</p>
+          </div>
+          <span class="text-[11px] text-gray-400 italic">💡 Click any bar to view details below</span>
+        </div>
+        <div class="flex-1 min-h-[270px] relative">
+          <canvas id="wipBarChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Fabric Donut Split -->
+      <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col">
+        <h2 class="text-sm font-bold text-gray-800 mb-2">Fabric Type Split</h2>
+        <div class="flex-1 min-h-[270px] flex items-center justify-center relative">
+          <canvas id="fabricDonutChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Dynamic Table Section -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <!-- Toolbar Header -->
+      <div class="p-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center flex-wrap gap-2">
+        <div class="flex items-center space-x-3 flex-wrap gap-2">
+          <div>
+            <h3 id="table-title" class="text-sm font-bold text-gray-800">Order Status by Customer</h3>
+            <p id="table-subtitle" class="text-xs text-gray-500">Summary overview across customer accounts</p>
+          </div>
+
+
+
+          <!-- Stage Breakdown Filter Buttons (Ordered: All - Pending - On Progress - Finished) -->
+          <div id="stage-counters" class="hidden flex items-center space-x-2 pl-3 border-l border-gray-300">
+            <button onclick="filterSubStatus('ALL')" id="filter-all" class="px-2.5 py-0.5 rounded-full text-xs font-bold border border-gray-300 bg-white text-gray-700 shadow-sm transition">All: <span id="cnt-all">0</span></button>
+            <button onclick="filterSubStatus('PENDING')" id="filter-pending" class="px-2.5 py-0.5 rounded-full text-xs font-bold border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Pending: <span id="cnt-pending">0</span></button>
+            <button onclick="filterSubStatus('ON_PROGRESS')" id="filter-progress" class="px-2.5 py-0.5 rounded-full text-xs font-bold border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 transition">On Progress: <span id="cnt-progress">0</span></button>
+            <button onclick="filterSubStatus('FINISHED')" id="filter-finish" class="px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition">Finished: <span id="cnt-finish">0</span></button>
+            
+            <!-- Process Start Date Filter -->
+            <div class="flex items-center space-x-1 pl-2 border-l border-gray-300">
+              <label class="text-xs font-semibold text-gray-600">Start Date:</label>
+              <input type="date" id="stage-date-filter" onchange="updateStageCountersAndTable()" class="text-xs text-black px-2 py-0.5 bg-white border border-gray-300 rounded shadow-sm">
+              <button onclick="document.getElementById('stage-date-filter').value=''; updateStageCountersAndTable();" class="text-xs text-gray-400 hover:text-gray-700 font-bold px-1" title="Clear Date">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <button 
+          id="btn-reset-view" 
+          onclick="resetToCustomerView()" 
+          class="hidden bg-slate-700 hover:bg-slate-800 text-white font-semibold text-xs px-3 py-1.5 rounded transition flex items-center gap-1 shadow-sm">
+          <span>↺</span> Back to Customer Summary
+        </button>
+      </div>
+
+      <!-- Scrollable Table -->
+      <div class="overflow-x-auto max-h-[400px]">
+        <table class="w-full text-left" id="dynamic-table">
+          <thead id="dynamic-thead"></thead>
+          <tbody id="dynamic-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 1. ACTIVE ORDERS POPUP MODAL -->
+  <div id="active-orders-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 bg-blue-50/80 border-b border-blue-100 flex justify-between items-center flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">📋</div>
+          <div>
+            <h3 class="text-base font-bold text-gray-800">Active Orders In Progress</h3>
+            <p id="active-modal-subtitle" class="text-xs text-blue-700 font-medium mt-0.5">Orders actively in manufacturing</p>
+          </div>
+        </div>
+        <button onclick="closeModal('active-orders-modal')" class="text-gray-400 hover:text-gray-700 text-2xl font-bold px-2 py-1 leading-none rounded transition">&times;</button>
+      </div>
+      <div class="flex-1 overflow-auto px-4 pb-4">
+        <table class="w-full text-left">
+          <thead>
+            <tr>
+              <th>PO Number</th>
+              <th>Customer</th>
+              <th>Fabric Type</th>
+              <th>Job Card (CIST)</th>
+              <th>Machine ID</th>
+              <th class="text-right">Plan Qty (Kg)</th>
+              <th class="text-right">Actual Qty (Kg)</th>
+              <th>Current Stage</th>
+              <th>Start Time</th>
+              <th>PO Created</th>
+              <th>Target Delivery</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="active-modal-tbody"></tbody>
+        </table>
+      </div>
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center flex-shrink-0 text-xs">
+        <span id="active-modal-counter" class="text-gray-500 font-medium">0 Active Cards</span>
+        <button onclick="closeModal('active-orders-modal')" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. OVERDUE POPUP MODAL -->
+  <div id="overdue-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 bg-rose-50/80 border-b border-rose-100 flex justify-between items-center flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm">!</div>
+          <div>
+            <h3 class="text-base font-bold text-gray-800">Delivery Overdue Orders & Job Cards</h3>
+            <p id="overdue-modal-subtitle" class="text-xs text-rose-700 font-medium mt-0.5">Orders past target delivery date</p>
+          </div>
+        </div>
+        <button onclick="closeModal('overdue-modal')" class="text-gray-400 hover:text-gray-700 text-2xl font-bold px-2 py-1 leading-none rounded transition">&times;</button>
+      </div>
+      <div class="flex-1 overflow-auto px-4 pb-4">
+        <table class="w-full text-left">
+          <thead>
+            <tr>
+              <th>PO Number</th>
+              <th>Customer</th>
+              <th>Fabric Type</th>
+              <th>Job Card (CIST)</th>
+              <th>Machine ID</th>
+              <th class="text-right">Plan Qty (Kg)</th>
+              <th class="text-right">Actual Qty (Kg)</th>
+              <th>Target Delivery Date</th>
+              <th>Days Overdue</th>
+              <th>Current Process</th>
+              <th>Process Start Time</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="overdue-modal-tbody"></tbody>
+        </table>
+      </div>
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center flex-shrink-0 text-xs">
+        <span id="overdue-modal-counter" class="text-gray-500 font-medium">0 Overdue POs</span>
+        <button onclick="closeModal('overdue-modal')" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. COMPLETED QA PACKING POPUP MODAL -->
+  <div id="completed-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 bg-emerald-50/80 border-b border-emerald-100 flex justify-between items-center flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">✓</div>
+          <div>
+            <h3 class="text-base font-bold text-gray-800">Completed Orders (Finished QA Packing)</h3>
+            <p id="completed-modal-subtitle" class="text-xs text-emerald-700 font-medium mt-0.5">Cards completed through final inspection</p>
+          </div>
+        </div>
+        <button onclick="closeModal('completed-modal')" class="text-gray-400 hover:text-gray-700 text-2xl font-bold px-2 py-1 leading-none rounded transition">&times;</button>
+      </div>
+      <div class="flex-1 overflow-auto px-4 pb-4">
+        <table class="w-full text-left">
+          <thead>
+            <tr>
+              <th>PO Number</th>
+              <th>Customer</th>
+              <th>Fabric Type</th>
+              <th>Job Card (CIST)</th>
+              <th>Machine ID</th>
+              <th class="text-right">Actual Qty (Kg)</th>
+              <th>QA Packing Date</th>
+              <th>Total Duration (JobCard-QA)</th>
+              <th>Target Delivery Date</th>
+              <th>Delivery Status</th>
+            </tr>
+          </thead>
+          <tbody id="completed-modal-tbody"></tbody>
+        </table>
+      </div>
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center flex-shrink-0 text-xs">
+        <span id="completed-modal-counter" class="text-gray-500 font-medium">0 Completed Cards</span>
+        <button onclick="closeModal('completed-modal')" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. FLAGGED NOTES POPUP MODAL -->
+  <div id="notes-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 bg-amber-50/80 border-b border-amber-100 flex justify-between items-center flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm">✎</div>
+          <div>
+            <h3 class="text-base font-bold text-gray-800">Flagged Notes & Remarks</h3>
+            <p id="notes-modal-subtitle" class="text-xs text-amber-700 font-medium mt-0.5">Job cards with special handling remarks</p>
+          </div>
+        </div>
+        <button onclick="closeModal('notes-modal')" class="text-gray-400 hover:text-gray-700 text-2xl font-bold px-2 py-1 leading-none rounded transition">&times;</button>
+      </div>
+      <div class="flex-1 overflow-auto px-4 pb-4">
+        <table class="w-full text-left">
+          <thead>
+            <tr>
+              <th>PO Number</th>
+              <th>Customer</th>
+              <th>Fabric Type</th>
+              <th>Job Card (CIST)</th>
+              <th>Machine ID</th>
+              <th>Current Process</th>
+              <th>Process Start Time</th>
+              <th>Target Delivery Date</th>
+              <th class="w-72">Flagged Remark / Note</th>
+            </tr>
+          </thead>
+          <tbody id="notes-modal-tbody"></tbody>
+        </table>
+      </div>
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center flex-shrink-0 text-xs">
+        <span id="notes-modal-counter" class="text-gray-500 font-medium">0 Flagged Cards</span>
+        <button onclick="closeModal('notes-modal')" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. LEAD TIME RANKING POPUP MODAL -->
+  <div id="leadtime-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 bg-indigo-50/80 border-b border-indigo-100 flex justify-between items-center flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">⏱</div>
+          <div>
+            <h3 class="text-base font-bold text-gray-800">JobCard-to-QA Lead Time Ranking</h3>
+            <p id="leadtime-modal-subtitle" class="text-xs text-indigo-700 font-medium mt-0.5">Longest to shortest completion duration</p>
+          </div>
+        </div>
+        <button onclick="closeModal('leadtime-modal')" class="text-gray-400 hover:text-gray-700 text-2xl font-bold px-2 py-1 leading-none rounded transition">&times;</button>
+      </div>
+      <div class="flex-1 overflow-auto px-4 pb-4">
+        <table class="w-full text-left">
+          <thead>
+            <tr>
+              <th class="text-center">Rank</th>
+              <th>PO Number</th>
+              <th>Customer</th>
+              <th>Fabric Type</th>
+              <th>Job Card (CIST)</th>
+              <th>Machine ID</th>
+              <th class="text-center font-bold text-indigo-900 bg-indigo-50">JobCard-QA Lead Time</th>
+              <th>Greige-QA LT</th>
+              <th>QA Date</th>
+            </tr>
+          </thead>
+          <tbody id="leadtime-modal-tbody"></tbody>
+        </table>
+      </div>
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center flex-shrink-0 text-xs">
+        <span id="leadtime-modal-counter" class="text-gray-500 font-medium">0 Tracked Records</span>
+        <button onclick="closeModal('leadtime-modal')" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let globalOrders = [];
+    let barChartInstance = null;
+    let donutChartInstance = null;
+    let currentFilteredStage = null;
+    let activeSubStatusFilter = 'ALL';
+    let currentCustomerFilter = 'All';
+    let currentStageCards = [];
+
+    const ORDERED_STAGES = [
+      'Greige',
+      'Overturn',
+      'Preset',
+      'Sewing',
+      'Dyeing',
+      'Drying',
+      'Setting',
+      'Printing',
+      'Fabric Wash',
+      'QA Packing'
+    ];
+
+    function resolveStageInfo(proc) {
+      const p = String(proc || '').trim().toLowerCase();
+      if (!p || p === 'pending' || p === 'pending start' || p === 'none' || p === 'nan') {
+        return { stageName: null, effectiveIdx: -1, isIntermediate: false };
+      }
+      if (p.includes('greige')) return { stageName: 'Greige', effectiveIdx: 0, isIntermediate: false };
+      if (p.includes('over turn') || p.includes('overturn')) return { stageName: 'Overturn', effectiveIdx: 1, isIntermediate: false };
+      if (p.includes('pre-set') || p.includes('preset')) return { stageName: 'Preset', effectiveIdx: 2, isIntermediate: false };
+      if (p.includes('sewing')) return { stageName: 'Sewing', effectiveIdx: 3, isIntermediate: false };
+      if (p.includes('dyeing')) return { stageName: 'Dyeing', effectiveIdx: 4, isIntermediate: false };
+      if (p.includes('slitting')) return { stageName: 'Drying', effectiveIdx: 4.5, isIntermediate: true };
+      if (p.includes('drying')) return { stageName: 'Drying', effectiveIdx: 5, isIntermediate: false };
+      if (p.includes('setting')) return { stageName: 'Setting', effectiveIdx: 6, isIntermediate: false };
+      if (p.includes('print')) return { stageName: 'Printing', effectiveIdx: 7, isIntermediate: false };
+      if (p.includes('fabric wash') || p.includes('wash')) return { stageName: 'Fabric Wash', effectiveIdx: 8, isIntermediate: false };
+      if (p.includes('qa') || p.includes('packing')) return { stageName: 'QA Packing', effectiveIdx: 9, isIntermediate: false };
+      return { stageName: null, effectiveIdx: -1, isIntermediate: false };
+    }
+
+    function getStageIndex(stageName) {
+      return ORDERED_STAGES.indexOf(stageName);
+    }
+
+    function checkStageCompleted(jc) {
+      if (typeof jc.last_process_completed === 'boolean') {
+        return jc.last_process_completed;
+      }
+      const lp = String(jc.last_process || '').trim();
+      if (lp === 'Greige Fabric' && jc.greige_end) return true;
+      if (lp === 'Dyeing' && jc.dyeing_end) return true;
+      if (lp === 'Setting' && jc.setting_end) return true;
+      if (lp === 'QA Packing' && jc.qa_end) return true;
+      return false;
+    }
+
+    function getStatusClass(statusText) {
+      if (statusText === 'Finished' || statusText === 'QA Packing') return 'status-completed';
+      if (statusText === 'On Progress') return 'status-progress';
+      return 'status-pending';
+    }
+
+    function parseDateDMY(dateStr) {
+      if (!dateStr) return null;
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+      return null;
+    }
+
+    function parseLeadTimeToMinutes(ltStr) {
+      if (!ltStr) return 0;
+      let mins = 0;
+      const dMatch = ltStr.match(/(\d+)d/);
+      const hMatch = ltStr.match(/(\d+)h/);
+      const mMatch = ltStr.match(/(\d+)m/);
+      if (dMatch) mins += parseInt(dMatch[1]) * 1440;
+      if (hMatch) mins += parseInt(hMatch[1]) * 60;
+      if (mMatch) mins += parseInt(mMatch[1]);
+      return mins;
+    }
+
+    function formatMinutesToDH(totalMins) {
+      if (!totalMins || totalMins <= 0) return "--";
+      const days = Math.floor(totalMins / 1440);
+      const hours = Math.floor((totalMins % 1440) / 60);
+      if (days > 0) return `${days}d ${hours}h`;
+      return `${hours}h`;
+    }
+
+    async function loadSummaryData(forceRefresh = false) {
+      const sDate = document.getElementById('start-date').value;
+      const eDate = document.getElementById('end-date').value;
+      const poType = document.getElementById('po-type').value;
+
+      sessionStorage.setItem("summary_start_date", sDate);
+      sessionStorage.setItem("summary_end_date", eDate);
+      sessionStorage.setItem("summary_po_type", poType);
+
+      if (!forceRefresh) {
+        const cached = sessionStorage.getItem("cached_orders_data");
+        const cachedTime = sessionStorage.getItem("cached_orders_time");
+        if (cached) {
+          try {
+            const data = JSON.parse(cached);
+            globalOrders = data;
+            if (cachedTime) {
+              document.getElementById('refresh-time').innerText = cachedTime.replace("Refreshed", "Updated");
+            }
+            populateCustomerDropdown(data);
+            calculateKPIs(data);
+            renderCharts(data);
+            if (currentFilteredStage) {
+              showProcessJobCards(currentFilteredStage);
+            } else {
+              renderCustomerTable(data);
+            }
+            return;
+          } catch (e) {
+            console.error("Cache parse error", e);
+          }
+        }
+      }
+
+      try {
+        const url = `/api/orders?start_date=${sDate}&end_date=${eDate}&date_type=od_date&po_type=${poType}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.error) {
+          alert("Database Error: " + data.error);
+          return;
+        }
+
+        const timeStr = "Last Updated: " + new Date().toLocaleString();
+        document.getElementById('refresh-time').innerText = timeStr;
+
+        globalOrders = data;
+        sessionStorage.setItem("cached_orders_data", JSON.stringify(data));
+        sessionStorage.setItem("cached_orders_time", timeStr);
+
+        populateCustomerDropdown(data);
+        calculateKPIs(data);
+        renderCharts(data);
+        
+        if (currentFilteredStage) {
+          showProcessJobCards(currentFilteredStage);
+        } else {
+          renderCustomerTable(data);
+        }
+
+      } catch (err) {
+        console.error("Summary fetch error:", err);
+      }
+    }
+
+    function populateCustomerDropdown(orders) {
+      const custSelect = document.getElementById('customer-filter');
+      const currentVal = custSelect.value;
+      const customers = new Set();
+      orders.forEach(po => {
+        if (po.cust_id) customers.add(po.cust_id.trim());
+      });
+
+      custSelect.innerHTML = '<option value="All">All Customers</option>';
+      Array.from(customers).sort().forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.innerText = c;
+        custSelect.appendChild(opt);
+      });
+
+      if (customers.has(currentVal)) {
+        custSelect.value = currentVal;
+      } else {
+        custSelect.value = 'All';
+        currentCustomerFilter = 'All';
+      }
+    }
+
+    function applyCustomerFilter() {
+      currentCustomerFilter = document.getElementById('customer-filter').value;
+      sessionStorage.setItem("summary_customer_filter", currentCustomerFilter);
+      calculateKPIs(globalOrders);
+      renderCharts(globalOrders);
+      if (currentFilteredStage) {
+        showProcessJobCards(currentFilteredStage);
+      } else {
+        renderCustomerTable(globalOrders);
+      }
+    }
+
+    function calculateKPIs(orders) {
+      let activePOCount = 0;
+      let totalJobCards = 0;
+      let overdueCount = 0;
+      let completedQAJobCards = 0;
+      let completedQAPOs = 0;
+      let notesCount = 0;
+      let totalQAMins = 0;
+      let countWithQALT = 0;
+
+      let activeWeight = 0;
+      let overdueWeight = 0;
+      let completedWeight = 0;
+      let notesWeight = 0;
+      let totalWeight = 0;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      orders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        const jcs = po.job_cards || [];
+        totalJobCards += jcs.length;
+
+        const poWeight = po.total_plan_qty || 0;
+        totalWeight += poWeight;
+
+        const isPOFullyComplete = jcs.length > 0 && jcs.every(jc => String(jc.last_process || '').trim() === 'QA Packing');
+        if (isPOFullyComplete) {
+          completedQAPOs++;
+          completedWeight += poWeight;
+        } else {
+          activePOCount++;
+          activeWeight += poWeight;
+        }
+
+        const devDateObj = parseDateDMY(po.dev_date);
+        let isOverdue = false;
+        if (devDateObj && devDateObj < today) {
+          const hasUnfinishedJCs = jcs.some(jc => {
+            const lp = String(jc.last_process || '').trim();
+            const qaEnd = String(jc.qa_end || '').trim();
+            const qaStart = String(jc.qa_start || '').trim();
+            const hasFinishedQA = (lp === 'QA Packing' || (qaEnd !== '' && qaEnd !== '--') || (qaStart !== '' && qaStart !== '--'));
+            return !hasFinishedQA;
+          });
+          if (hasUnfinishedJCs) {
+            overdueCount++;
+            isOverdue = true;
+            overdueWeight += poWeight;
+          }
+        }
+
+        let hasPoNote = false;
+        jcs.forEach(jc => {
+          const lp = String(jc.last_process || '').trim();
+          if (lp === 'QA Packing') {
+            completedQAJobCards++;
+          }
+          if (jc.has_note && String(jc.note || '').trim() !== '') {
+            notesCount++;
+            hasPoNote = true;
+          }
+          if (jc.jobcard_qa_lt) {
+            const m = parseLeadTimeToMinutes(jc.jobcard_qa_lt);
+            if (m > 0) {
+              totalQAMins += m;
+              countWithQALT++;
+            }
+          }
+        });
+        if (hasPoNote) {
+          notesWeight += poWeight;
+        }
+      });
+
+      document.getElementById('kpi-orders').innerText = activePOCount;
+      document.getElementById('kpi-jc-total').innerText = `${totalJobCards} Job Cards`;
+      document.getElementById('kpi-orders-weight').innerText = `Gross: ${activeWeight.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Kg`;
+
+      document.getElementById('kpi-overdue').innerText = overdueCount;
+      document.getElementById('kpi-overdue-weight').innerText = `Gross: ${overdueWeight.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})} Kg`;
+
+      document.getElementById('kpi-completed-po').innerText = completedQAPOs;
+      document.getElementById('kpi-completed-jc').innerText = `${completedQAJobCards} / ${totalJobCards} Job Cards`;
+      document.getElementById('kpi-completed-weight').innerText = `Gross: ${completedWeight.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})} Kg`;
+
+      document.getElementById('kpi-notes').innerText = notesCount;
+      document.getElementById('kpi-notes-weight').innerText = `Gross: ${notesWeight.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})} Kg`;
+
+      const avgMins = countWithQALT > 0 ? Math.round(totalQAMins / countWithQALT) : 0;
+      document.getElementById('kpi-avg-lt').innerText = formatMinutesToDH(avgMins);
+      document.getElementById('kpi-avg-lt-weight').innerText = `Gross: ${totalWeight.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})} Kg`;
+    }
+
+    // --- MODAL CONTROLS ---
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ['active-orders-modal', 'overdue-modal', 'completed-modal', 'notes-modal', 'leadtime-modal'].forEach(closeModal);
+      }
+    });
+
+    // 1. ACTIVE ORDERS MODAL
+    function openActiveOrdersModal() {
+      const modal = document.getElementById('active-orders-modal');
+      const tbody = document.getElementById('active-modal-tbody');
+      tbody.innerHTML = '';
+
+      let count = 0;
+      globalOrders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        const jcs = po.job_cards || [];
+        const isPOFullyComplete = jcs.length > 0 && jcs.every(jc => String(jc.last_process || '').trim() === 'QA Packing');
+
+        if (!isPOFullyComplete) {
+          jcs.forEach(jc => {
+            if (String(jc.last_process || '').trim() !== 'QA Packing') {
+              count++;
+              const tr = document.createElement('tr');
+              tr.className = "hover:bg-blue-50/40 transition";
+              const fabricColor = po.order_type_spec === 'Print' ? 'text-purple-700 font-semibold' : 'text-emerald-700 font-semibold';
+              const isDone = checkStageCompleted(jc);
+
+              let procClass = 'status-progress';
+              if (isDone) procClass = 'text-center font-medium text-gray-700';
+              else if (!jc.last_process || jc.last_process.toLowerCase() === 'pending') procClass = 'status-pending';
+
+              tr.innerHTML = `
+                <td class="font-bold text-[#00427A]">${po.po_no}</td>
+                <td class="font-bold text-gray-800">${po.cust_id || ''}</td>
+                <td class="${fabricColor}">${po.order_type_spec || 'Solid'}</td>
+                <td class="font-mono font-bold ${jc.has_note ? 'highlight-pink' : ''}">${jc.cist_no}</td>
+                <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${jc.mach_id || ''}</td>
+                <td class="text-right font-mono font-medium text-slate-600">${jc.sp_qty ? jc.sp_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+                <td class="text-right font-mono font-bold text-emerald-700">${jc.ok_qty ? jc.ok_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+                <td class="${procClass}">${jc.last_process || 'Pending'}</td>
+                <td>${jc.last_process_time || '--'}</td>
+                <td>${jc.od_date || ''}</td>
+                <td>${jc.dev_date || ''}</td>
+                <td class="${jc.has_note ? 'highlight-pink' : ''}">${jc.note || ''}</td>
+              `;
+              tbody.appendChild(tr);
+            }
+          });
+        }
+      });
+
+      document.getElementById('active-modal-subtitle').innerText = `Displaying ${count} active Job Cards currently in production`;
+      document.getElementById('active-modal-counter').innerText = `Total: ${count} Active Cards`;
+      modal.classList.remove('hidden');
+    }
+
+    // 2. OVERDUE MODAL
+    function openOverdueModal() {
+      const modal = document.getElementById('overdue-modal');
+      const tbody = document.getElementById('overdue-modal-tbody');
+      tbody.innerHTML = '';
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let overduePOCount = 0;
+      let totalOverdueJCs = 0;
+
+      globalOrders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        const jcs = po.job_cards || [];
+        const devDateObj = parseDateDMY(po.dev_date);
+
+        if (devDateObj && devDateObj < today) {
+          // Filter out job cards that have completed QA Packing
+          const overdueJCs = jcs.filter(jc => {
+            const lp = String(jc.last_process || '').trim();
+            const qaEnd = String(jc.qa_end || '').trim();
+            const qaStart = String(jc.qa_start || '').trim();
+            const hasFinishedQA = (lp === 'QA Packing' || (qaEnd !== '' && qaEnd !== '--') || (qaStart !== '' && qaStart !== '--'));
+            return !hasFinishedQA;
+          });
+
+          if (overdueJCs.length > 0) {
+            overduePOCount++;
+            const diffDays = Math.floor((today - devDateObj) / (1000 * 60 * 60 * 24));
+            const fabricColor = po.order_type_spec === 'Print' ? 'text-purple-700 font-semibold' : 'text-emerald-700 font-semibold';
+
+            overdueJCs.forEach(jc => {
+              totalOverdueJCs++;
+              const tr = document.createElement('tr');
+              tr.className = "hover:bg-rose-50/50 transition";
+
+              let procClass = 'status-progress';
+              const lp = String(jc.last_process || '').trim();
+              if (!lp || lp.toLowerCase() === 'pending') procClass = 'status-pending';
+
+              tr.innerHTML = `
+                <td class="font-bold text-[#00427A]">${po.po_no}</td>
+                <td class="font-bold text-gray-800">${po.cust_id || ''}</td>
+                <td class="${fabricColor}">${po.order_type_spec || 'Solid'}</td>
+                <td class="font-mono font-bold ${jc.has_note ? 'highlight-pink' : ''}">${jc.cist_no}</td>
+                <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${jc.mach_id || ''}</td>
+                <td class="text-right font-mono font-medium text-slate-600">${jc.sp_qty ? jc.sp_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+                <td class="text-right font-mono font-bold text-emerald-700">${jc.ok_qty ? jc.ok_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+                <td class="font-bold text-rose-700">${po.dev_date || ''}</td>
+                <td class="text-center font-bold text-rose-700 bg-rose-50">${diffDays}d overdue</td>
+                <td class="${procClass}">${jc.last_process || 'Pending'}</td>
+                <td>${jc.last_process_time || '--'}</td>
+                <td class="${jc.has_note ? 'highlight-pink' : ''}">${jc.note || ''}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        }
+      });
+
+      document.getElementById('overdue-modal-subtitle').innerText = `Found ${overduePOCount} Overdue POs (${totalOverdueJCs} Job Cards)`;
+      document.getElementById('overdue-modal-counter').innerText = `Total: ${overduePOCount} POs / ${totalOverdueJCs} Cards`;
+      if (overduePOCount === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-gray-400 font-medium">🎉 Great news! No delivery overdue orders found.</td></tr>`;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    // 3. COMPLETED MODAL
+    function openCompletedModal() {
+      const modal = document.getElementById('completed-modal');
+      const tbody = document.getElementById('completed-modal-tbody');
+      tbody.innerHTML = '';
+
+      let count = 0;
+      globalOrders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        (po.job_cards || []).forEach(jc => {
+          if (String(jc.last_process || '').trim() === 'QA Packing') {
+            count++;
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-emerald-50/40 transition";
+            const fabricColor = po.order_type_spec === 'Print' ? 'text-purple-700 font-semibold' : 'text-emerald-700 font-semibold';
+
+            const devDateObj = parseDateDMY(jc.dev_date);
+            const qaDateObj = parseDateDMY(jc.qa_end ? jc.qa_end.substring(0, 10) : (jc.last_process_time ? jc.last_process_time.substring(0, 10) : ''));
+            const isLate = (devDateObj && qaDateObj && qaDateObj > devDateObj);
+
+            tr.innerHTML = `
+              <td class="font-bold text-[#00427A]">${po.po_no}</td>
+              <td class="font-bold text-gray-800">${po.cust_id || ''}</td>
+              <td class="${fabricColor}">${po.order_type_spec || 'Solid'}</td>
+              <td class="font-mono font-bold">${jc.cist_no}</td>
+              <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${jc.mach_id || ''}</td>
+              <td class="text-right font-mono font-bold text-emerald-700">${jc.ok_qty ? jc.ok_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+              <td>${jc.qa_end || jc.last_process_time || '--'}</td>
+              <td class="text-center font-bold text-emerald-800 bg-emerald-50/50">${jc.jobcard_qa_lt || '--'}</td>
+              <td>${jc.dev_date || ''}</td>
+              <td class="text-center font-bold ${isLate ? 'text-rose-600 bg-rose-50' : 'text-emerald-700 bg-emerald-50'}">
+                ${isLate ? 'Delivered Late' : 'On-Time'}
+              </td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      });
+
+      document.getElementById('completed-modal-subtitle').innerText = `Showing ${count} finished cards ready or dispatched`;
+      document.getElementById('completed-modal-counter').innerText = `Total: ${count} Completed Cards`;
+      if (count === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-gray-400 font-medium">No job cards have completed QA Packing in this range.</td></tr>`;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    // 4. FLAGGED NOTES MODAL
+    function openNotesModal() {
+      const modal = document.getElementById('notes-modal');
+      const tbody = document.getElementById('notes-modal-tbody');
+      tbody.innerHTML = '';
+
+      let matchedNotesCount = 0;
+      globalOrders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        const fabricColor = po.order_type_spec === 'Print' ? 'text-purple-700 font-semibold' : 'text-emerald-700 font-semibold';
+        (po.job_cards || []).forEach(jc => {
+          if (jc.has_note && String(jc.note || '').trim() !== '') {
+            matchedNotesCount++;
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-amber-50/50 transition";
+            const isDone = checkStageCompleted(jc);
+
+            let procClass = 'status-progress';
+            if (jc.last_process === 'QA Packing') procClass = 'status-completed';
+            else if (isDone) procClass = 'text-center font-medium text-gray-700';
+            else if (!jc.last_process || jc.last_process.toLowerCase() === 'pending') procClass = 'status-pending';
+
+            tr.innerHTML = `
+              <td class="font-bold text-[#00427A]">${po.po_no}</td>
+              <td class="font-bold text-gray-800">${po.cust_id || ''}</td>
+              <td class="${fabricColor}">${po.order_type_spec || 'Solid'}</td>
+              <td class="font-mono font-bold highlight-pink">${jc.cist_no}</td>
+              <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${jc.mach_id || ''}</td>
+              <td class="${procClass}">${jc.last_process || 'Pending'}</td>
+              <td>${jc.last_process_time || '--'}</td>
+              <td>${jc.dev_date || ''}</td>
+              <td class="highlight-pink whitespace-normal font-semibold text-gray-900">${jc.note}</td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      });
+
+      document.getElementById('notes-modal-subtitle').innerText = `Found ${matchedNotesCount} Job Cards with remarks`;
+      document.getElementById('notes-modal-counter').innerText = `Total: ${matchedNotesCount} Flagged Cards`;
+      if (matchedNotesCount === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-gray-400 font-medium">No job cards with remarks found in this timeframe.</td></tr>`;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    // 5. LEAD TIME RANKING MODAL
+    function openLeadTimeModal() {
+      const modal = document.getElementById('leadtime-modal');
+      const tbody = document.getElementById('leadtime-modal-tbody');
+      tbody.innerHTML = '';
+
+      let list = [];
+      globalOrders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        (po.job_cards || []).forEach(jc => {
+          if (jc.jobcard_qa_lt) {
+            const m = parseLeadTimeToMinutes(jc.jobcard_qa_lt);
+            if (m > 0) {
+              list.push({
+                po_no: po.po_no,
+                cust_id: po.cust_id,
+                fabric_type: po.order_type_spec,
+                cist_no: jc.cist_no,
+                mach_id: jc.mach_id,
+                jobcard_qa_lt: jc.jobcard_qa_lt,
+                greige_qa_lt: jc.greige_qa_lt,
+                qa_end: jc.qa_end || jc.last_process_time,
+                mins: m
+              });
+            }
+          }
+        });
+      });
+
+      list.sort((a, b) => b.mins - a.mins);
+
+      list.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-indigo-50/40 transition";
+        const fabricColor = item.fabric_type === 'Print' ? 'text-purple-700 font-semibold' : 'text-emerald-700 font-semibold';
+
+        tr.innerHTML = `
+          <td class="text-center font-bold text-gray-600">#${idx + 1}</td>
+          <td class="font-bold text-[#00427A]">${item.po_no}</td>
+          <td class="font-bold text-gray-800">${item.cust_id || ''}</td>
+          <td class="${fabricColor}">${item.fabric_type || 'Solid'}</td>
+          <td class="font-mono font-bold">${item.cist_no}</td>
+          <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${item.mach_id || ''}</td>
+          <td class="text-center font-extrabold text-indigo-900 bg-indigo-50">${item.jobcard_qa_lt}</td>
+          <td class="text-center text-gray-600">${item.greige_qa_lt || '--'}</td>
+          <td>${item.qa_end || '--'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('leadtime-modal-subtitle').innerText = `Ranking ${list.length} completed Job Cards by lead time duration`;
+      document.getElementById('leadtime-modal-counter').innerText = `Total: ${list.length} Completed Cards`;
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-gray-400 font-medium">No lead time data available for this range.</td></tr>`;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    // --- CHART RENDERING ---
+    function updateBarHighlight(selectedIndex) {
+      if (!barChartInstance) return;
+      const baseColors = [
+        { solid: '#10B981', light: 'rgba(16, 185, 129, 0.22)' }, // Finished
+        { solid: '#0284C7', light: 'rgba(2, 132, 199, 0.22)' },  // On Progress
+        { solid: '#F59E0B', light: 'rgba(245, 158, 11, 0.22)' }  // Pending
+      ];
+      barChartInstance.data.datasets.forEach((ds, dsIdx) => {
+        if (selectedIndex === null || selectedIndex === undefined || selectedIndex < 0) {
+          ds.backgroundColor = baseColors[dsIdx].solid;
+        } else {
+          ds.backgroundColor = ORDERED_STAGES.map((_, i) => (i === selectedIndex ? baseColors[dsIdx].solid : baseColors[dsIdx].light));
+        }
+      });
+      barChartInstance.update('none');
+    }
+
+    function renderCharts(orders) {
+      const stageStats = {};
+      ORDERED_STAGES.forEach(stg => {
+        stageStats[stg] = { finished: 0, progress: 0, pending: 0 };
+      });
+
+      let solidCount = 0;
+      let printCount = 0;
+
+      orders.forEach(po => {
+        if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
+
+        if (po.order_type_spec === 'Print') printCount++;
+        else solidCount++;
+
+        (po.job_cards || []).forEach(jc => {
+          const { stageName, effectiveIdx } = resolveStageInfo(jc.last_process);
+          const isDone = checkStageCompleted(jc);
+
+          ORDERED_STAGES.forEach((targetStage, targetIdx) => {
+            if (effectiveIdx > targetIdx) {
+              stageStats[targetStage].finished++;
+            } else if (effectiveIdx === targetIdx) {
+              if (targetStage === 'QA Packing') {
+                stageStats[targetStage].finished++;
+              } else if (isDone) {
+                stageStats[targetStage].finished++;
+              } else {
+                stageStats[targetStage].progress++;
+              }
+            } else if (effectiveIdx > targetIdx - 1 && effectiveIdx < targetIdx) {
+              stageStats[targetStage].progress++;
+            } else if (effectiveIdx === targetIdx - 1) {
+              stageStats[targetStage].pending++;
+            } else if (effectiveIdx === -1 && targetIdx === 0) {
+              stageStats['Greige'].pending++;
+            }
+          });
+        });
+      });
+
+      const barLabels = ORDERED_STAGES;
+      const finishedData = ORDERED_STAGES.map(stg => stageStats[stg].finished);
+      const progressData = ORDERED_STAGES.map(stg => stageStats[stg].progress);
+      const pendingData = ORDERED_STAGES.map(stg => stageStats[stg].pending);
+
+      const ctxBar = document.getElementById('wipBarChart').getContext('2d');
+      if (barChartInstance) barChartInstance.destroy();
+
+      barChartInstance = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: barLabels,
+          datasets: [
+            {
+              label: 'Finished',
+              data: finishedData,
+              backgroundColor: '#10B981',
+              borderRadius: 3,
+              barPercentage: 0.85,
+              categoryPercentage: 0.75
+            },
+            {
+              label: 'On Progress',
+              data: progressData,
+              backgroundColor: '#0284C7',
+              borderRadius: 3,
+              barPercentage: 0.85,
+              categoryPercentage: 0.75
+            },
+            {
+              label: 'Pending',
+              data: pendingData,
+              backgroundColor: '#F59E0B',
+              borderRadius: 3,
+              barPercentage: 0.85,
+              categoryPercentage: 0.75
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: { boxWidth: 12, font: { size: 11, weight: '600' }, padding: 14 }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              callbacks: {
+                footer: (tooltipItems) => {
+                  let sum = 0;
+                  tooltipItems.forEach(item => { sum += item.raw; });
+                  return `Total: ${sum} Job Cards`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { stacked: false, grid: { display: false }, ticks: { font: { size: 10, weight: '600' } } },
+            y: { stacked: false, beginAtZero: true, grid: { color: '#F1F5F9' }, ticks: { font: { size: 10 } } }
+          },
+          onClick: (evt, elements) => {
+            if (elements.length > 0) {
+              const element = elements[0];
+              const selectedStage = barLabels[element.index];
+              const datasetIndex = element.datasetIndex;
+              showProcessJobCards(selectedStage);
+              if (datasetIndex === 0) filterSubStatus('FINISHED');
+              else if (datasetIndex === 1) filterSubStatus('ON_PROGRESS');
+              else if (datasetIndex === 2) filterSubStatus('PENDING');
+            }
+          }
+        }
+      });
+
+      if (currentFilteredStage) {
+        updateBarHighlight(getStageIndex(currentFilteredStage));
+      }
+
+      const ctxDonut = document.getElementById('fabricDonutChart').getContext('2d');
+      if (donutChartInstance) donutChartInstance.destroy();
+
+      donutChartInstance = new Chart(ctxDonut, {
+        type: 'doughnut',
+        data: {
+          labels: ['Solid', 'Print'],
+          datasets: [{
+            data: [solidCount, printCount],
+            backgroundColor: ['#10B981', '#A855F7'],
+            borderWidth: 2,
+            borderColor: '#FFFFFF'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11, weight: '600' } } }
+          }
+        }
+      });
+    }
+
+    function renderCustomerTable(orders) {
+      currentFilteredStage = null;
+      document.getElementById('table-title').innerText = "Order Status by Customer";
+      document.getElementById('table-subtitle').innerText = "Summary overview across customer accounts";
+      document.getElementById('btn-reset-view').classList.add('hidden');
+      document.getElementById('stage-counters').classList.add('hidden');
+
+      const customerMap = {};
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      orders.forEach(po => {
+        const cust = po.cust_id || 'UNKNOWN';
+
+        if (!customerMap[cust]) {
+          customerMap[cust] = { activePOs: 0, totalJCs: 0, planWeight: 0, actualWeight: 0, printOrders: 0, solidOrders: 0, overduePOs: 0 };
+        }
+        customerMap[cust].activePOs++;
+        customerMap[cust].totalJCs += (po.job_cards || []).length;
+        customerMap[cust].planWeight += (po.total_plan_qty || 0);
+        customerMap[cust].actualWeight += (po.total_actual_qty || 0);
+        if (po.order_type_spec === 'Print') customerMap[cust].printOrders++;
+        else customerMap[cust].solidOrders++;
+
+        let poComplete = (String(po.last_process || '').trim() === 'QA Packing');
+        const devDateObj = parseDateDMY(po.dev_date);
+        if (devDateObj && devDateObj < today && !poComplete) {
+          customerMap[cust].overduePOs++;
+        }
+      });
+
+      const thead = document.getElementById('dynamic-thead');
+      const tbody = document.getElementById('dynamic-tbody');
+
+      thead.innerHTML = `
+        <tr>
+          <th>Customer Code</th>
+          <th class="text-center">Active POs</th>
+          <th class="text-center">Total Job Cards</th>
+          <th class="text-right">Gross Weight (Kg)</th>
+          <th class="text-right">After Production Weight (Kg)</th>
+          <th class="text-center">Print Orders</th>
+          <th class="text-center">Solid Orders</th>
+          <th class="text-center font-bold text-rose-600">Overdue POs</th>
+        </tr>
+      `;
+
+      tbody.innerHTML = '';
+      Object.keys(customerMap).sort().forEach(cust => {
+        const row = customerMap[cust];
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50 font-medium";
+        tr.innerHTML = `
+          <td class="font-bold text-gray-800">${cust}</td>
+          <td class="text-center">${row.activePOs}</td>
+          <td class="text-center">${row.totalJCs}</td>
+          <td class="text-right font-mono font-bold text-gray-800">${row.planWeight > 0 ? row.planWeight.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+          <td class="text-right font-mono font-bold text-emerald-700">${row.actualWeight > 0 ? row.actualWeight.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+          <td class="text-center text-purple-700 font-semibold">${row.printOrders}</td>
+          <td class="text-center text-emerald-700 font-semibold">${row.solidOrders}</td>
+          <td class="text-center font-bold ${row.overduePOs > 0 ? 'text-rose-600' : 'text-gray-400'}">${row.overduePOs}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getStageStartTime(jc, stageName) {
+      const s = String(stageName || '').trim().toLowerCase();
+      if (s.includes('greige')) return jc.greige_start;
+      if (s.includes('dyeing')) return jc.dyeing_start;
+      if (s.includes('setting')) return jc.setting_start;
+      if (s.includes('print')) return jc.printing_start;
+      if (s.includes('qa') || s.includes('packing')) return jc.qa_start;
+      if (s.includes('sewing')) return jc.sewing_start;
+      return jc.last_process_time;
+    }
+
+    function showProcessJobCards(stageName) {
+      currentFilteredStage = stageName;
+      activeSubStatusFilter = 'ALL';
+      sessionStorage.setItem("summary_current_stage", stageName);
+      sessionStorage.setItem("summary_sub_status", 'ALL');
+      const targetIdx = getStageIndex(stageName);
+      updateBarHighlight(targetIdx);
+      document.getElementById('table-title').innerText = `Job Cards in Stage: ${stageName}`;
+      document.getElementById('btn-reset-view').classList.remove('hidden');
+      document.getElementById('stage-counters').classList.remove('hidden');
+
+      currentStageCardsAll = [];
+
+      globalOrders.forEach(po => {
+        (po.job_cards || []).forEach(jc => {
+          const { stageName: matchedStage, effectiveIdx } = resolveStageInfo(jc.last_process);
+          const isDone = checkStageCompleted(jc);
+
+          let stageStatus = null;
+
+          if (effectiveIdx > targetIdx) {
+            stageStatus = 'Finished';
+          } else if (effectiveIdx === targetIdx) {
+            if (stageName === 'QA Packing' || isDone) {
+              stageStatus = 'Finished';
+            } else {
+              stageStatus = 'On Progress';
+            }
+          } else if (effectiveIdx > targetIdx - 1 && effectiveIdx < targetIdx) {
+            stageStatus = 'On Progress';
+          } else if (effectiveIdx === targetIdx - 1) {
+            stageStatus = 'Pending';
+          } else if (effectiveIdx === -1 && targetIdx === 0) {
+            stageStatus = 'Pending';
+          }
+
+          if (stageStatus !== null) {
+            const stageStartTime = getStageStartTime(jc, stageName);
+            currentStageCardsAll.push({
+              po_no: po.po_no,
+              cist_no: jc.cist_no,
+              cust_id: po.cust_id,
+              fabric_type: po.order_type_spec,
+              mach_id: jc.mach_id,
+              sp_qty: jc.sp_qty,
+              ok_qty: jc.ok_qty,
+              last_process: stageName,
+              last_process_completed: isDone,
+              stage_status: stageStatus,
+              process_start_time: stageStartTime || jc.last_process_time,
+              od_date: po.od_date,
+              dev_date: po.dev_date,
+              has_note: jc.has_note,
+              note: jc.note
+            });
+          }
+        });
+      });
+
+      updateStageCountersAndTable();
+    }
+
+    function filterSubStatus(type) {
+      // Toggle off if clicking the already active sub-status filter
+      if (activeSubStatusFilter === type && type !== 'ALL') {
+        type = 'ALL';
+      }
+      activeSubStatusFilter = type;
+      sessionStorage.setItem("summary_sub_status", type);
+
+      ['all', 'progress', 'finish', 'pending'].forEach(k => {
+        const btn = document.getElementById(`filter-${k}`);
+        if (btn) btn.classList.remove('ring-2', 'ring-offset-1', 'ring-blue-600');
+      });
+      const activeMap = { 'ALL': 'all', 'ON_PROGRESS': 'progress', 'FINISHED': 'finish', 'PENDING': 'pending' };
+      const activeBtn = document.getElementById(`filter-${activeMap[type]}`);
+      if (activeBtn) activeBtn.classList.add('ring-2', 'ring-offset-1', 'ring-blue-600');
+
+      renderFilteredStageTable();
+    }
+
+    function updateStageCountersAndTable() {
+      const dateFilterVal = document.getElementById('stage-date-filter') ? document.getElementById('stage-date-filter').value : '';
+      let targetDMY = '';
+      if (dateFilterVal) {
+        const parts = dateFilterVal.split('-');
+        if (parts.length === 3) {
+          targetDMY = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+      }
+
+      let baseCards = currentStageCardsAll || [];
+      if (currentCustomerFilter !== 'All') {
+        baseCards = baseCards.filter(c => String(c.cust_id || '').trim() === currentCustomerFilter);
+      }
+
+      if (targetDMY) {
+        baseCards = baseCards.filter(c => String(c.process_start_time || '').trim().startsWith(targetDMY));
+      }
+
+      let pCnt = 0, opCnt = 0, fCnt = 0;
+      baseCards.forEach(c => {
+        if (c.stage_status === 'Pending') pCnt++;
+        else if (c.stage_status === 'On Progress') opCnt++;
+        else if (c.stage_status === 'Finished') fCnt++;
+      });
+
+      document.getElementById('cnt-all').innerText = baseCards.length;
+      document.getElementById('cnt-pending').innerText = pCnt;
+      document.getElementById('cnt-progress').innerText = opCnt;
+      document.getElementById('cnt-finish').innerText = fCnt;
+
+      currentStageCards = baseCards;
+      renderFilteredStageTable();
+    }
+
+    function renderFilteredStageTable() {
+      const thead = document.getElementById('dynamic-thead');
+      const tbody = document.getElementById('dynamic-tbody');
+
+      thead.innerHTML = `
+        <tr>
+          <th>PO Number</th>
+          <th>Job Card (CIST)</th>
+          <th>Customer</th>
+          <th>Fabric Type</th>
+          <th>Machine ID</th>
+          <th class="text-right">Plan Qty (Kg)</th>
+          <th class="text-right">Actual Qty (Kg)</th>
+          <th class="text-center">Stage Status</th>
+          <th>Current Process</th>
+          <th>Process Start Time</th>
+          <th>PO Created Date</th>
+          <th>Target Delivery Date</th>
+          <th>Note</th>
+        </tr>
+      `;
+
+      tbody.innerHTML = '';
+
+      let list = currentStageCards;
+
+      if (activeSubStatusFilter === 'ON_PROGRESS') {
+        list = list.filter(c => c.stage_status === 'On Progress');
+      } else if (activeSubStatusFilter === 'FINISHED') {
+        list = list.filter(c => c.stage_status === 'Finished');
+      } else if (activeSubStatusFilter === 'PENDING') {
+        list = list.filter(c => c.stage_status === 'Pending');
+      }
+
+      document.getElementById('table-subtitle').innerText = `Showing ${list.length} Job Cards (${activeSubStatusFilter === 'ALL' ? 'Total' : activeSubStatusFilter.replace('_', ' ')})`;
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-6 text-gray-400">No job cards found for customer ${currentCustomerFilter} with status ${activeSubStatusFilter}</td></tr>`;
+        return;
+      }
+
+      list.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50";
+
+        const badgeClass = getStatusClass(c.stage_status);
+        const fabricBg = c.fabric_type === 'Print' ? 'text-purple-700 font-semibold' : 'text-emerald-700 font-semibold';
+
+        let currentProcClass = 'text-center font-medium text-gray-700';
+        if (c.last_process === 'QA Packing') {
+          currentProcClass = 'status-completed';
+        }
+
+        tr.innerHTML = `
+          <td class="font-bold text-[#00427A]">${c.po_no}</td>
+          <td class="font-mono font-bold ${c.has_note ? 'highlight-pink' : ''}">${c.cist_no}</td>
+          <td class="font-semibold text-gray-700">${c.cust_id || ''}</td>
+          <td class="${fabricBg}">${c.fabric_type || 'Solid'}</td>
+          <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${c.mach_id || ''}</td>
+          <td class="text-right font-mono font-medium text-slate-600">${c.sp_qty ? c.sp_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+          <td class="text-right font-mono font-bold text-emerald-700">${c.ok_qty ? c.ok_qty.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '--'}</td>
+          <td class="${badgeClass}">${c.stage_status}</td>
+          <td class="${currentProcClass}">${c.last_process}</td>
+          <td>${c.process_start_time || '--'}</td>
+          <td>${c.od_date || ''}</td>
+          <td>${c.dev_date || ''}</td>
+          <td class="${c.has_note ? 'highlight-pink' : ''}">${c.note || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function resetToCustomerView() {
+      currentFilteredStage = null;
+      activeSubStatusFilter = 'ALL';
+      sessionStorage.removeItem("summary_current_stage");
+      sessionStorage.removeItem("summary_sub_status");
+      updateBarHighlight(null);
+      renderCustomerTable(globalOrders);
+    }
+
+    window.onload = () => {
+      const sDate = sessionStorage.getItem("summary_start_date") || sessionStorage.getItem("index_start_date");
+      const eDate = sessionStorage.getItem("summary_end_date") || sessionStorage.getItem("index_end_date");
+      const poType = sessionStorage.getItem("summary_po_type") || sessionStorage.getItem("index_po_type");
+      const custFilter = sessionStorage.getItem("summary_customer_filter");
+      const savedStage = sessionStorage.getItem("summary_current_stage");
+      const savedSubStatus = sessionStorage.getItem("summary_sub_status");
+
+      if (sDate) document.getElementById('start-date').value = sDate;
+      if (eDate) document.getElementById('end-date').value = eDate;
+      if (poType) document.getElementById('po-type').value = poType;
+      if (custFilter) {
+        currentCustomerFilter = custFilter;
+        const custSelect = document.getElementById('customer-filter');
+        if (custSelect) custSelect.value = custFilter;
+      }
+
+      // Load summary data without force-refreshing
+      loadSummaryData(false).then(() => {
+        if (savedStage) {
+          showProcessJobCards(savedStage);
+          if (savedSubStatus && savedSubStatus !== 'ALL') {
+            filterSubStatus(savedSubStatus);
+          }
+        }
+      });
+    };
+  </script>
+</body>
+</html>

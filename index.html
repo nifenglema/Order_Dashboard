@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Order Overview Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .highlight-pink { background-color: #F8BBD0 !important; color: #880e4f !important; font-weight: 600; }
+
+    /* Clean cell borders with separate collapse to eliminate sticky bleeding */
+    #matrix-table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    th, td {
+      border-right: 1px solid #CBD5E1;
+      border-bottom: 1px solid #CBD5E1;
+      white-space: nowrap;
+      font-size: 11px;
+      padding: 5px 8px;
+      vertical-align: middle;
+    }
+    #matrix-table thead tr:first-child th {
+      border-top: 1px solid #CBD5E1;
+    }
+    #matrix-table th:first-child,
+    #matrix-table td:first-child {
+      border-left: 1px solid #CBD5E1;
+    }
+
+    /* Top Sticky Header (Solid 100% Opaque, No Bleed-Through) */
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #1E293B !important;
+      color: #F8FAFC !important;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background-clip: padding-box;
+    }
+
+    /* Left Sticky Column for PO No / Job Card */
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      background-clip: padding-box;
+      box-shadow: 2px 0 5px -1px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Top-Left Corner Intersection (Above both vertical and horizontal scroll) */
+    thead th.sticky-col {
+      top: 0;
+      left: 0;
+      z-index: 30;
+      background-color: #1E293B !important;
+      color: #FFFFFF !important;
+    }
+
+    /* Multi-line centered header styling */
+    th.multiline-header {
+      text-align: center;
+      vertical-align: middle;
+      line-height: 1.25;
+    }
+
+    /* Parent PO Row: Pure White Header Row */
+    tr.po-parent-row {
+      background-color: #FFFFFF;
+      font-weight: 700;
+    }
+    tr.po-parent-row:hover {
+      background-color: #F1F5F9;
+    }
+    tr.po-parent-row td.sticky-col {
+      background-color: #FFFFFF;
+    }
+    tr.po-parent-row:hover td.sticky-col {
+      background-color: #F1F5F9;
+    }
+
+    /* Child Job Card Row: Soft Distinct Tint Across ENTIRE Row (No Blue Line) */
+    tr.job-card-row {
+      background-color: #F0F5FA !important; /* Soft distinct slate-blue tint */
+      color: #334155;
+    }
+    tr.job-card-row:hover {
+      background-color: #E2EBF5 !important;
+    }
+    tr.job-card-row td {
+      background-color: #F0F5FA;
+    }
+    tr.job-card-row:hover td {
+      background-color: #E2EBF5;
+    }
+    tr.job-card-row td.sticky-col {
+      background-color: #F0F5FA !important;
+    }
+    tr.job-card-row:hover td.sticky-col {
+      background-color: #E2EBF5 !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 flex flex-col h-screen font-sans">
+
+  <!-- Top Blue Bar (Spacious 2-Row Header Layout) -->
+  <header class="bg-[#002B54] text-white px-6 py-3 flex flex-col space-y-3 shadow-md flex-shrink-0">
+    <!-- Row 1: Title, View Switcher, and Actions -->
+    <div class="flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">Order Overview</h1>
+          <p id="refresh-time" class="text-xs text-blue-200 mt-0.5">Last Refreshed: Connecting...</p>
+        </div>
+
+        <!-- Navigation Switcher -->
+        <div class="flex bg-[#001D38] p-1 rounded-md text-xs font-semibold">
+          <a href="index.html" class="bg-white text-[#002B54] px-3 py-1 rounded shadow">Detail View</a>
+          <a href="summary.html" class="text-blue-200 hover:text-white px-3 py-1 rounded transition">Summary View</a>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-2">
+        <button 
+            onclick="fetchOrders(true)" 
+            class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-1.5 rounded shadow transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+        </button>
+        <button 
+            onclick="fetchOrders(true)" 
+            class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-5 py-1.5 rounded shadow transition">
+            Filter
+        </button>
+      </div>
+    </div>
+
+    <!-- Row 2: Well-Spaced Filter Controls -->
+    <div class="flex items-center flex-wrap gap-3 pt-1 border-t border-blue-900/60">
+      <!-- Date Filter -->
+      <div>
+        <label class="block text-[11px] font-semibold mb-1 text-blue-200">Date Filter By</label>
+        <div class="flex space-x-1.5">
+          <select id="date-type" class="text-xs text-black px-2.5 py-1.5 bg-white border border-gray-300 rounded shadow-sm">
+            <option value="od_date" selected>PO Created Date</option>
+            <option value="dev_date">Delivery Date</option>
+          </select>
+          <input type="date" id="start-date" value="2026-10-01" class="text-xs text-black px-2 py-1.5 bg-white border border-gray-300 rounded shadow-sm">
+          <input type="date" id="end-date" value="2026-10-30" class="text-xs text-black px-2 py-1.5 bg-white border border-gray-300 rounded shadow-sm">
+        </div>
+      </div>
+
+      <!-- PO Type -->
+      <div>
+        <label class="block text-[11px] font-semibold mb-1 text-blue-200">PO Type</label>
+        <select id="po-type" class="text-xs text-black px-2.5 py-1.5 bg-white border border-gray-300 rounded w-32 shadow-sm">
+          <option value="All">All Orders</option>
+          <option value="Sample">Sample</option>
+          <option value="Bulk Order" selected>Bulk Order</option>
+          <option value="Fabric Testing">Fabric Testing</option>
+        </select>
+      </div>
+
+      <!-- 3-Way Fabric Type Filter Button -->
+      <div>
+        <label class="block text-[11px] font-semibold mb-1 text-blue-200">Fabric Filter</label>
+        <button 
+          id="fabric-toggle-btn" 
+          onclick="cycleFabricFilter()" 
+          class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs px-3.5 py-1.5 rounded shadow-sm border border-gray-300 transition flex items-center justify-center gap-1 w-32">
+          <span>Fabric: All</span>
+        </button>
+      </div>
+
+      <!-- Filter by Current / Last Process -->
+      <div>
+        <label class="block text-[11px] font-semibold mb-1 text-blue-200">Current Process</label>
+        <select id="process-filter" onchange="applyFiltersAndRender()" class="text-xs text-black px-2.5 py-1.5 bg-white border border-gray-300 rounded w-36 shadow-sm font-medium">
+          <option value="All" selected>All Processes</option>
+          <option value="Greige Fabric">Greige Fabric</option>
+          <option value="Over Turn">Over Turn</option>
+          <option value="Pre-Set">Pre-Set</option>
+          <option value="Sewing">Sewing</option>
+          <option value="Dyeing">Dyeing</option>
+          <option value="Drying 1">Drying 1</option>
+          <option value="Setting">Setting</option>
+          <option value="Printing">Printing</option>
+          <option value="QA Packing">QA Packing</option>
+          <option value="Pending">Pending</option>
+          <option value="Overdue">Overdue</option>
+        </select>
+      </div>
+
+      <!-- Search Box -->
+      <div>
+        <label class="block text-[11px] font-semibold mb-1 text-blue-200">Search</label>
+        <input type="text" id="search-box" placeholder="Search PO / JC..." class="text-xs text-black px-3 py-1.5 bg-white border border-gray-300 rounded w-36 shadow-sm">
+      </div>
+
+      <!-- Expand / Collapse All Toggle Button -->
+      <div>
+        <label class="block text-[11px] font-semibold mb-1 text-blue-200">Toggle View</label>
+        <button 
+          id="btn-toggle-all"
+          onclick="toggleAllRows()" 
+          class="bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 py-1.5 rounded shadow-sm border border-slate-600 transition flex items-center justify-center gap-1.5 w-28">
+          <span id="toggle-all-icon">⊟</span>
+          <span id="toggle-all-text">Collapse</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Table Body -->
+  <main class="flex-1 p-4 overflow-hidden">
+    <div id="table-container" class="bg-white shadow border border-slate-300 overflow-auto h-full rounded-md">
+      <table class="w-full text-left" id="matrix-table">
+        <thead>
+          <tr>
+            <th class="w-48 sticky-col multiline-header">PO No /<br>Job Card</th>
+            <th class="multiline-header">Customer</th>
+            <th class="multiline-header">Fabric<br>Type</th>
+            <th class="multiline-header">Gross Weight<br>(Kg)</th>
+            <th class="multiline-header">After Production<br>Weight (Kg)</th>
+            <th class="multiline-header">PO Created<br>Date</th>
+            <th class="multiline-header">Target Delivery<br>Date</th>
+            <th class="multiline-header">Target Lead<br>Time</th>
+            <th class="multiline-header">Job Card<br>Created Date</th>
+            <th class="multiline-header">Machine<br>ID</th>
+            
+            <!-- Greige -->
+            <th class="multiline-header">Greige<br>Start Time</th>
+            <th class="multiline-header">Greige<br>End Time</th>
+            <th class="multiline-header">Lead Time<br>Greige-Dyeing</th>
+            
+            <!-- Dyeing -->
+            <th class="multiline-header">Dyeing<br>Start Time</th>
+            <th class="multiline-header">Dyeing<br>End Time</th>
+            <th class="multiline-header">Lead Time<br>Dyeing-Setting</th>
+            
+            <!-- Setting -->
+            <th class="multiline-header">Setting<br>Start Time</th>
+            <th class="multiline-header">Setting<br>End Time</th>
+            <th class="multiline-header">Lead Time<br>Setting-Printing</th>
+            
+            <!-- Printing -->
+            <th class="multiline-header">Printing<br>Start Time</th>
+            <th class="multiline-header">Printing<br>End Time</th>
+            <th class="multiline-header">Lead Time<br>Printing-QA</th>
+            
+            <!-- QA Packing -->
+            <th class="multiline-header">QAPacking<br>Start Time</th>
+            <th class="multiline-header">QAPacking<br>End Time</th>
+            
+            <!-- Overall Lead Times -->
+            <th class="multiline-header">Lead Time<br>Greige-QA</th>
+            <th class="multiline-header">Lead Time<br>JobCard-QA</th>
+            <th class="multiline-header">Lead Time<br>PO-QA</th>
+            
+            <th class="multiline-header">Note</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+
+    function parseDateDMY(dateStr) {
+      if (!dateStr) return null;
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+      return null;
+    }
+
+    function calculateTargetLeadTimeDays(devDateStr, odDateStr) {
+      const d1 = parseDateDMY(devDateStr);
+      const d2 = parseDateDMY(odDateStr);
+      if (!d1 || !d2) return '--';
+      const diffTime = d1 - d2;
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      return `${diffDays}d`;
+    }
+
+    let rawOrdersData = [];
+    let fabricFilterState = 0; 
+    let allExpanded = true;
+    let collapsedPOs = new Set();
+
+    function cycleFabricFilter() {
+      fabricFilterState = (fabricFilterState + 1) % 3;
+      sessionStorage.setItem("index_fabric_filter_state", fabricFilterState);
+      updateFabricFilterBtn();
+      applyFiltersAndRender();
+    }
+
+    function updateFabricFilterBtn() {
+      const btn = document.getElementById('fabric-toggle-btn');
+      if (fabricFilterState === 1) {
+        btn.className = "bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-1.5 rounded shadow-sm border border-emerald-700 transition flex items-center justify-center gap-1 w-32";
+        btn.innerHTML = "<span>Fabric: Solid</span>";
+      } else if (fabricFilterState === 2) {
+        btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs px-3.5 py-1.5 rounded shadow-sm border border-purple-700 transition flex items-center justify-center gap-1 w-32";
+        btn.innerHTML = "<span>Fabric: Print</span>";
+      } else {
+        btn.className = "bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs px-3.5 py-1.5 rounded shadow-sm border border-gray-300 transition flex items-center justify-center gap-1 w-32";
+        btn.innerHTML = "<span>Fabric: All</span>";
+      }
+    }
+
+    function toggleAllRows() {
+      allExpanded = !allExpanded;
+      const btnIcon = document.getElementById('toggle-all-icon');
+      const btnText = document.getElementById('toggle-all-text');
+      
+      btnIcon.innerText = allExpanded ? '⊟' : '⊞';
+      btnText.innerText = allExpanded ? 'Collapse' : 'Expand All';
+
+      collapsedPOs.clear();
+      rawOrdersData.forEach((po, idx) => {
+        const rows = document.querySelectorAll(`.child-row-${idx}`);
+        const icon = document.getElementById(`icon-${idx}`);
+        rows.forEach(r => {
+          if (allExpanded) r.classList.remove('hidden');
+          else {
+            r.classList.add('hidden');
+            collapsedPOs.add(idx);
+          }
+        });
+        if (icon) icon.innerText = allExpanded ? '⊟' : '⊞';
+      });
+
+      sessionStorage.setItem("index_all_expanded", allExpanded ? "1" : "0");
+      sessionStorage.setItem("index_collapsed_pos", JSON.stringify(Array.from(collapsedPOs)));
+    }
+
+    async function fetchOrders(forceRefresh = false) {
+      const dateTypeEl = document.getElementById('date-type');
+      const dateType = dateTypeEl ? dateTypeEl.value : 'od_date';
+      const sDate = document.getElementById('start-date').value;
+      const eDate = document.getElementById('end-date').value;
+      const poType = document.getElementById('po-type').value;
+      const searchInput = document.getElementById('search-box');
+      const search = searchInput ? searchInput.value : '';
+
+      sessionStorage.setItem("index_date_type", dateType);
+      sessionStorage.setItem("index_start_date", sDate);
+      sessionStorage.setItem("index_end_date", eDate);
+      sessionStorage.setItem("index_po_type", poType);
+      sessionStorage.setItem("index_search", search);
+
+      if (!forceRefresh) {
+        const cached = sessionStorage.getItem("cached_orders_data");
+        const cachedTime = sessionStorage.getItem("cached_orders_time");
+        if (cached) {
+          try {
+            rawOrdersData = JSON.parse(cached);
+            if (cachedTime) {
+              document.getElementById('refresh-time').innerText = cachedTime;
+            }
+            applyFiltersAndRender();
+            restoreScrollAndCollapseState();
+            return;
+          } catch(e) {
+            console.error("Cache parse error", e);
+          }
+        }
+      }
+
+      try {
+        const url = `/api/orders?start_date=${sDate}&end_date=${eDate}&date_type=${dateType}&po_type=${poType}&search=${search}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.error) {
+          alert("Database Error: " + data.error);
+          return;
+        }
+
+        const timeStr = "Last Refreshed: " + new Date().toLocaleString();
+        document.getElementById('refresh-time').innerText = timeStr;
+        
+        rawOrdersData = data;
+        sessionStorage.setItem("cached_orders_data", JSON.stringify(data));
+        sessionStorage.setItem("cached_orders_time", timeStr);
+
+        applyFiltersAndRender();
+        restoreScrollAndCollapseState();
+      } catch (err) {
+        console.error("API connection error:", err);
+        alert("Failed to connect to backend server. Make sure FastAPI is running on port 8000.");
+      }
+    }
+
+    function applyFiltersAndRender() {
+      let filteredOrders = rawOrdersData;
+      const processFilterVal = document.getElementById('process-filter') ? document.getElementById('process-filter').value : 'All';
+
+      sessionStorage.setItem("index_process_filter", processFilterVal);
+
+      if (fabricFilterState === 1) {
+        filteredOrders = filteredOrders.filter(po => po.order_type_spec === 'Solid');
+      } else if (fabricFilterState === 2) {
+        filteredOrders = filteredOrders.filter(po => po.order_type_spec === 'Print');
+      }
+
+      if (processFilterVal !== 'All') {
+        if (processFilterVal === 'Overdue') {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+// parseDateDMY is now global
+          filteredOrders = filteredOrders.map(po => {
+            const devDateObj = parseDateDMY(po.dev_date);
+            if (!devDateObj || devDateObj >= today) return null;
+
+            const overdueJCs = (po.job_cards || []).filter(jc => {
+              const lp = String(jc.last_process || '').trim();
+              const qaEnd = String(jc.qa_end || '').trim();
+              const qaStart = String(jc.qa_start || '').trim();
+              const hasFinishedQA = (lp === 'QA Packing' || (qaEnd !== '' && qaEnd !== '--') || (qaStart !== '' && qaStart !== '--'));
+              return !hasFinishedQA;
+            });
+
+            const allFinished = (po.job_cards || []).length > 0 && (po.job_cards || []).every(jc => {
+              const lp = String(jc.last_process || '').trim();
+              const qaEnd = String(jc.qa_end || '').trim();
+              const qaStart = String(jc.qa_start || '').trim();
+              return (lp === 'QA Packing' || (qaEnd !== '' && qaEnd !== '--') || (qaStart !== '' && qaStart !== '--'));
+            });
+
+            if (allFinished) return null;
+
+            if (overdueJCs.length > 0) {
+              return {
+                ...po,
+                job_cards: overdueJCs
+              };
+            }
+            return null;
+          }).filter(po => po !== null);
+        } else {
+          filteredOrders = filteredOrders.map(po => {
+            const matchingJCs = (po.job_cards || []).filter(jc => {
+              const jcProc = String(jc.last_process || 'Pending').trim();
+              if (processFilterVal === 'Pending') {
+                return !jc.last_process || jcProc.toLowerCase() === 'pending';
+              }
+              return jcProc.toLowerCase() === processFilterVal.toLowerCase();
+            });
+
+            const poProc = String(po.last_process || 'Pending').trim();
+            const poMatches = (processFilterVal === 'Pending') 
+              ? (!po.last_process || poProc.toLowerCase() === 'pending')
+              : (poProc.toLowerCase() === processFilterVal.toLowerCase());
+
+            if (matchingJCs.length > 0 || poMatches) {
+              return {
+                ...po,
+                job_cards: matchingJCs.length > 0 ? matchingJCs : po.job_cards
+              };
+            }
+            return null;
+          }).filter(po => po !== null);
+        }
+      }
+
+      renderTable(filteredOrders);
+    }
+
+    function renderTable(orders) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+
+      orders.forEach((po, pIdx) => {
+        const pRow = document.createElement('tr');
+        pRow.className = "po-parent-row cursor-pointer select-none";
+        pRow.onclick = () => togglePO(pIdx);
+
+        const fabricBgClass = po.order_type_spec === 'Print'
+          ? 'bg-purple-100 text-purple-900 font-semibold text-center'
+          : 'bg-emerald-100 text-emerald-900 font-semibold text-center';
+
+        const isCollapsed = collapsedPOs.has(pIdx);
+
+        pRow.innerHTML = `
+          <td class="sticky-col">
+            <span id="icon-${pIdx}" class="inline-block w-4 text-center mr-1 text-slate-500 font-bold">${isCollapsed ? '⊞' : '⊟'}</span>
+            ${po.po_no}
+            <span class="text-[10px] text-slate-400 font-normal ml-1">(${po.job_cards.length})</span>
+          </td>
+          <td class="font-bold text-gray-800">${po.cust_id || ''}</td>
+          <td class="${fabricBgClass}">
+            ${po.order_type_spec || 'Solid'}
+          </td>
+          <td class="text-right font-bold text-gray-800">${po.total_plan_qty ? po.total_plan_qty.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--'}</td>
+          <td class="text-right font-bold text-emerald-800">${po.total_actual_qty ? po.total_actual_qty.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--'}</td>
+          <td>${po.od_date || ''}</td>
+          <td>${po.dev_date || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${calculateTargetLeadTimeDays(po.dev_date, po.od_date)}</td>
+          <td>${po.ci_date || ''}</td>
+          <td class="text-center font-mono font-bold text-indigo-700">${po.mach_id || ''}</td>
+          <td class="font-semibold text-slate-800">${po.greige_start || ''}</td>
+          <td class="font-semibold text-slate-800">${po.greige_end ? po.greige_end + ' ' : ''}<span class="text-[10px] text-slate-400 font-normal">(${po.job_cards.length} Job Cards)</span></td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.greige_dyeing_lt || ''}</td>
+          <td class="font-semibold text-slate-800">${po.dyeing_start || ''}</td>
+          <td class="font-semibold text-slate-800">${po.dyeing_end || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.dyeing_setting_lt || ''}</td>
+          <td class="font-semibold text-slate-800">${po.setting_start || ''}</td>
+          <td class="font-semibold text-slate-800">${po.setting_end || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.setting_printing_lt || ''}</td>
+          <td class="font-semibold text-slate-800">${po.printing_start || ''}</td>
+          <td class="font-semibold text-slate-800">${po.printing_end || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.printing_qa_lt || ''}</td>
+          <td class="font-semibold text-slate-800">${po.qa_start || ''}</td>
+          <td class="font-semibold text-slate-800">${po.qa_end || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.greige_qa_lt || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.jobcard_qa_lt || ''}</td>
+          <td class="text-left pl-3 font-semibold text-slate-800">${po.po_qa_lt || ''}</td>
+        `;
+        tbody.appendChild(pRow);
+
+        po.job_cards.forEach(jc => {
+          const cRow = document.createElement('tr');
+          cRow.className = `job-card-row child-row-${pIdx} ${isCollapsed ? 'hidden' : ''}`;
+
+          cRow.innerHTML = `
+            <td class="pl-8 sticky-col font-mono font-medium ${jc.has_note ? 'highlight-pink' : ''}">${jc.cist_no}</td>
+            <td class="text-slate-400"></td>
+            <td class="text-slate-400"></td>
+            <td class="text-right font-mono font-medium text-slate-600">${jc.sp_qty ? jc.sp_qty.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--'}</td>
+            <td class="text-right font-mono font-bold text-emerald-700">${jc.ok_qty ? jc.ok_qty.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--'}</td>
+            <td>${jc.od_date || ''}</td>
+            <td>${jc.dev_date || ''}</td>
+            <td class="text-left pl-3">${calculateTargetLeadTimeDays(jc.dev_date, jc.od_date)}</td>
+            <td>${jc.ci_date || ''}</td>
+            <td class="text-center font-mono font-bold text-indigo-700 bg-indigo-50/70">${jc.mach_id || ''}</td>
+            <td>${jc.greige_start || ''}</td>
+            <td>${jc.greige_end || ''}</td>
+            <td class="text-left pl-3">${jc.greige_dyeing_lt || ''}</td>
+            <td>${jc.dyeing_start || ''}</td>
+            <td>${jc.dyeing_end || ''}</td>
+            <td class="text-left pl-3">${jc.dyeing_setting_lt || ''}</td>
+            <td>${jc.setting_start || ''}</td>
+            <td>${jc.setting_end || ''}</td>
+            <td class="text-left pl-3">${jc.setting_printing_lt || ''}</td>
+            <td>${jc.printing_start || ''}</td>
+            <td>${jc.printing_end || ''}</td>
+            <td class="text-left pl-3">${jc.printing_qa_lt || ''}</td>
+            <td>${jc.qa_start || ''}</td>
+            <td>${jc.qa_end || ''}</td>
+            <td class="text-left pl-3">${jc.greige_qa_lt || ''}</td>
+            <td class="text-left pl-3">${jc.jobcard_qa_lt || ''}</td>
+            <td class="text-left pl-3">${jc.po_qa_lt || ''}</td>
+            <td class="${jc.has_note ? 'highlight-pink' : ''}">${jc.note || ''}</td>
+          `;
+          tbody.appendChild(cRow);
+        });
+      });
+    }
+
+    function togglePO(idx) {
+      const rows = document.querySelectorAll(`.child-row-${idx}`);
+      const icon = document.getElementById(`icon-${idx}`);
+      const isHidden = rows[0]?.classList.contains('hidden');
+      rows.forEach(r => r.classList.toggle('hidden'));
+      icon.innerText = isHidden ? '⊟' : '⊞';
+
+      if (isHidden) {
+        collapsedPOs.delete(idx);
+      } else {
+        collapsedPOs.add(idx);
+      }
+      sessionStorage.setItem("index_collapsed_pos", JSON.stringify(Array.from(collapsedPOs)));
+    }
+
+    function saveScrollPosition() {
+      const container = document.getElementById('table-container');
+      if (container) {
+        sessionStorage.setItem("index_scroll_top", container.scrollTop);
+        sessionStorage.setItem("index_scroll_left", container.scrollLeft);
+      }
+    }
+
+    function restoreScrollAndCollapseState() {
+      const container = document.getElementById('table-container');
+      if (container) {
+        const top = sessionStorage.getItem("index_scroll_top");
+        const left = sessionStorage.getItem("index_scroll_left");
+        if (top !== null) container.scrollTop = parseInt(top);
+        if (left !== null) container.scrollLeft = parseInt(left);
+      }
+    }
+
+    window.onbeforeunload = saveScrollPosition;
+
+    window.onload = () => {
+      const sDate = sessionStorage.getItem("index_start_date");
+      const eDate = sessionStorage.getItem("index_end_date");
+      const dType = sessionStorage.getItem("index_date_type");
+      const pType = sessionStorage.getItem("index_po_type");
+      const srch = sessionStorage.getItem("index_search");
+      const fabState = sessionStorage.getItem("index_fabric_filter_state");
+      const expState = sessionStorage.getItem("index_all_expanded");
+      const collapsedArr = sessionStorage.getItem("index_collapsed_pos");
+      const procFilter = sessionStorage.getItem("index_process_filter");
+
+      if (sDate) document.getElementById('start-date').value = sDate;
+      if (eDate) document.getElementById('end-date').value = eDate;
+      if (dType && document.getElementById('date-type')) document.getElementById('date-type').value = dType;
+      if (pType) document.getElementById('po-type').value = pType;
+      if (srch) document.getElementById('search-box').value = srch;
+      if (fabState !== null) {
+        fabricFilterState = parseInt(fabState);
+        updateFabricFilterBtn();
+      }
+      if (expState !== null) {
+        allExpanded = (expState === "1");
+        document.getElementById('toggle-all-icon').innerText = allExpanded ? '⊟' : '⊞';
+        document.getElementById('toggle-all-text').innerText = allExpanded ? 'Collapse' : 'Expand All';
+      }
+      if (collapsedArr) {
+        try {
+          collapsedPOs = new Set(JSON.parse(collapsedArr));
+        } catch(e) {}
+      }
+      if (procFilter) {
+        const procSel = document.getElementById('process-filter');
+        if (procSel) procSel.value = procFilter;
+      }
+
+      fetchOrders(false);
+    };
+  </script>
+</body>
+</html>
