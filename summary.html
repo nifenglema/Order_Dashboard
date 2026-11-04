@@ -958,6 +958,12 @@
         if (currentCustomerFilter !== 'All' && String(po.cust_id || '').trim() !== currentCustomerFilter) return;
 
         (po.job_cards || []).forEach(jc => {
+          // EXCLUDE REWORK / SUFFIX CARDS HERE:
+          // Check if CIST has a suffix after the base 7 characters (e.g. 2681131A1)
+          const cist = String(jc.cist_no || '').trim();
+          const isReworkSuffix = /[A-Z]\d+$/.test(cist) || /[A-Z]{2}\d*$/.test(cist);
+          if (isReworkSuffix) return; // Skip suffix/rework cards
+
           if (jc.jobcard_qa_lt) {
             const m = parseLeadTimeToMinutes(jc.jobcard_qa_lt);
             if (m > 0) {
